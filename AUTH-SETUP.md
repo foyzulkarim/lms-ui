@@ -15,9 +15,6 @@ Create a `.env` file in the root of the frontend project with:
 ```
 # API URL for backend
 VITE_API_URL="http://localhost:3000/api"
-
-# If you want to use mock data instead of real API (not recommended for auth testing)
-# VITE_USE_MOCK_API=true
 ```
 
 ## Running the Application

@@ -5,6 +5,14 @@ const API_BASE_URL = typeof import.meta.env !== 'undefined' && import.meta.env.V
   ? import.meta.env.VITE_API_URL
   : 'http://localhost:4000';
 
+// Move refreshToken above fetcher so it can be referenced
+async function refreshToken() {
+  return fetcher('/api/auth/refresh', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
 /**
  * Fetch wrapper with standardized error handling
  */
@@ -126,3 +134,5 @@ export const api = {
     });
   },
 };
+
+export { fetcher };

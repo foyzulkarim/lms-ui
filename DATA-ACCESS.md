@@ -1,45 +1,49 @@
+<!-- filepath: /Users/foyzul/personal/lmsai/lms-ui/DATA-ACCESS.md -->
 # Data Access in LearnFlow
 
-This document explains how data access works in the LearnFlow application, particularly focusing on how to run the production build locally with reliable data.
+This document explains how data access works in the LearnFlow application, particularly focusing on how to run the production build locally.
 
-## Problem: API Mocking Issues in Production
+## Current Data Access Approach
 
-When running the production build on Cloudflare or similar environments, the mock API implementation might not work properly, causing data not to load correctly.
+The LearnFlow application now uses a real API for all data access:
 
-## Solution: Direct Mock Data Usage
+1. **API-Based Data Access**: We use a real backend API for all data operations.
+2. **No Mock Data**: Mock data functionality has been completely removed.
+3. **Real Backend Required**: A functioning backend API is required to run the application.
 
-Instead of relying on mocked API calls, we've simplified the application to use mock data directly. This ensures that data is always available, even in production builds.
+## How to Run Locally
 
-### How It Works
+To run the application locally:
 
-The application now uses the following simplified approach:
+1. Start the backend API server first:
 
-1. **Direct Data Access**: We import and use mock data directly from the source files.
-2. **No API Conditionals**: Instead of switching between API and mock data, we always use mock data.
-3. **Visual Indicator**: A green indicator showing "📊 MOCK DATA" appears at the bottom right of the screen to indicate we're using mock data.
-
-## How to Run Locally in Production Mode
-
-To run the production build locally with reliable data access:
-
-1. Build the application:
    ```bash
-   npm run build
+   # Navigate to the backend folder and start the server
+   # Your actual command may vary depending on the backend setup
+   npm run dev
    ```
 
-2. Preview the built application:
+2. Start the frontend development server:
+
    ```bash
+   npm run dev
+   ```
+
+3. Or build and preview the production build:
+
+   ```bash
+   npm run build
    npm run preview
    ```
 
-3. Open the application in your browser (typically at http://localhost:4173).
+4. Open the application in your browser (typically at `http://localhost:5173` for dev or `http://localhost:4173` for preview).
 
-The application will automatically display the mock data without requiring any API calls or complex configuration.
+## API Configuration
 
-## Components Structure
+The API URL is configured through the `VITE_API_URL` environment variable and defaults to `http://localhost:4000` if not specified.
 
-The direct data access system consists of the following components:
+This can be set in your `.env` file:
 
-1. `src/lib/mockData.ts` - Contains all the mock data definitions.
-2. `src/lib/directData.ts` - Exports functions that directly access the mock data.
-3. `src/components/DataTestComponent.tsx` - A simple component that directly renders mock data.
+```env
+VITE_API_URL=http://your-api-server.com
+```

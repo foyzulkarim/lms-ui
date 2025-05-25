@@ -1,8 +1,7 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { mockApiRequest } from "./mockApi";
 
-// Always use mock API
-export let useMockApi = true;
+// API URL configuration - setting directly to localhost:4000 since env variables aren't working
+const API_BASE_URL = 'http://localhost:4000';
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -19,14 +18,13 @@ export async function apiRequest(
     headers?: Record<string, string>;
   },
 ): Promise<Response> {
-  // Always use mock API for /api requests
-  if (url.startsWith('/api')) {
-    return mockApiRequest(url, data, options);
-  }
-
-  // For non-API requests, use regular fetch
+  // For API requests, use the real API
+  const fullUrl = url.startsWith('/api') 
+    ? `${API_BASE_URL}${url}` 
+    : url;
+    
   const method = options?.method || 'GET';
-  const res = await fetch(url, {
+  const res = await fetch(fullUrl, {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
@@ -36,7 +34,38 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  // Handle token refresh for 401 errors (except for auth endpoints)
+  if (res.status === 401 && 
+      !url.includes('/api/auth/refresh') && 
+      !url.includes('/api/auth/logout')) {
+    try {
+      // Try to refresh the token
+      const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        credentials: 'include'
+      });
+      
+      if (refreshRes.ok) {
+        // Retry the original request with the new token
+        const retryRes = await fetch(fullUrl, {
+          method,
+          headers: {
+            ...(data ? { "Content-Type": "application/json" } : {}),
+            ...(options?.headers || {})
+          },
+          body: data ? (typeof data === 'string' ? data : JSON.stringify(data)) : undefined,
+          credentials: "include",
+        });
+        
+        return retryRes;
+      }
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+    }
+  }
+
   return res;
 }
 
@@ -46,25 +75,48 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Always use mock API for /api requests
-    if (typeof queryKey[0] === 'string' && queryKey[0].startsWith('/api')) {
-      const res = await mockApiRequest(queryKey[0] as string);
-      
-      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-        return null;
-      }
-      
-      await throwIfResNotOk(res);
-      return await res.json();
-    }
+    // For API requests, use the real API
+    const url = queryKey[0] as string;
+    const fullUrl = url.startsWith('/api') 
+      ? `${API_BASE_URL}${url}` 
+      : url;
     
-    // For non-API requests, use regular fetch
-    const res = await fetch(queryKey[0] as string, {
+    const res = await fetch(fullUrl, {
       credentials: "include",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
+    }
+
+    if (res.status === 401 && 
+        !url.includes('/api/auth/refresh') && 
+        !url.includes('/api/auth/logout')) {
+      try {
+        // Try to refresh the token
+        const refreshRes = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+          credentials: 'include'
+        });
+        
+        if (refreshRes.ok) {
+          // Retry the original request with the new token
+          const retryRes = await fetch(fullUrl, {
+            credentials: "include",
+          });
+          
+          if (unauthorizedBehavior === "returnNull" && retryRes.status === 401) {
+            return null;
+          }
+          
+          await throwIfResNotOk(retryRes);
+          return await retryRes.json();
+        }
+      } catch (error) {
+        console.error('Token refresh failed:', error);
+      }
     }
 
     await throwIfResNotOk(res);
@@ -85,12 +137,3 @@ export const queryClient = new QueryClient({
     },
   },
 });
-
-// These functions are kept for compatibility but they don't do anything now
-export function enableMockApi() {
-  console.log('📊 Mock data is already enabled by default');
-}
-
-export function disableMockApi() {
-  console.log('📊 Mock data cannot be disabled in this version');
-}
